@@ -1,7 +1,12 @@
-#define ECHO_PIN 14
-#define TEST_PIN 10
+#define ECHO_PIN 8
+#define TEST_PIN LED_BUILTIN
 
-#define IC1_EDGESEL B01000000;
+#define IC1_EDGESEL_MSK B01000000;
+
+void init_GPIO() {
+  pinMode(TEST_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+}
 
 void power_reduction() {
 
@@ -18,12 +23,6 @@ void power_reduction() {
   // ADC:   Enabled
 }
 
-void init_GPIO() {
-  pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(TEST_PIN, OUTPUT);
-  pinMode(ECHO_PIN, INPUT);
-}
-
 void init_TIMER1() {
   cli();
 
@@ -37,21 +36,10 @@ void init_TIMER1() {
   TIMSK1 = B00100000;    //ICIE1:  Enabled  OCIE1B: N/A   OCIE1A: N/A   TOIE1:  N/A
   TIFR1  = B00000000;    //OCF1B:  N/A      OCF1A:  N/A   TOV1:   N/A
 
-  // Serial.println(TCCR1A);
-  // Serial.println(TCCR1B);
-  // Serial.println(TCCR1C);
-  // Serial.println(TCNT1);
-  // Serial.println(OCR1A);
-  // Serial.println(OCR1B);
-  // Serial.println(ICR1);
-  // Serial.println(TIMSK1);
-  // Serial.println(TIFR1);
-
   sei();
 }
 
 void init_TIMER2() {
-  // check if timer2 works by printing to Serial Monitor
   cli();                 // disable all interrupts
   
   TCCR2A = B00000000;    //COM2A:  N/A    COM2B: N/A    WGM2:  Normal
@@ -64,22 +52,13 @@ void init_TIMER2() {
   ASSR   = B00000000;
   GTCCR  = B00000000;
 
-  // Serial.println(TCCR2A);
-  // Serial.println(TCCR2B);
-  // Serial.println(TCNT2);
-  // Serial.println(OCR2A);
-  // Serial.println(OCR2B);
-  // Serial.println(TIMSK2);
-  // Serial.println(TIFR2);
-  // Serial.println(ASSR);
-  // Serial.println(GTCCR);
-
   sei();                  // enable all interrupts
 }
 
 ISR(TIMER1_CAPT_vect) {
   // Toggle IC Edge
-  TCCR1B ^= IC1_EDGESEL;
+  TCCR1B ^= IC1_EDGESEL_MSK;
+  // Print Timer 1 value stored in ICR1
   Serial.println(ICR1);
 }
 
@@ -87,18 +66,20 @@ volatile uint8_t cntT2 = 0;
 volatile bool pinState;
 ISR(TIMER2_OVF_vect) {
   cntT2++;
-  if (!(cntT2%64)){//!(cntT2%8)) {
-    Serial.println("Tick...");
+  // If 1 sec has passed,
+  if ( !(cntT2%64) ) {
+    // Toggle TEST_PIN to verify IC1 is working
     pinState = !pinState;
     digitalWrite(TEST_PIN, pinState);
   }
 }
 
 void setup() {
-  // put your setup code here, to run once:
+  // Initialize UART comms to 115200 baud
   Serial.begin(115200);
+  // Print reset cause register
   Serial.println(MCUSR);
-
+  // Initialize peripherals
   init_GPIO();
   Serial.println("Before init.");
   init_TIMER1();
@@ -107,6 +88,5 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  // TODO: Check for any reset causes
+
 }

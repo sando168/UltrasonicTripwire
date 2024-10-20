@@ -1,15 +1,15 @@
+#define TRIG_PIN 2
 #define ECHO_PIN 8
-#define TEST_PIN LED_BUILTIN
 
-#define IC1_EDGESEL_MSK B01000000;
+#define IC1_EDGESEL_MSK B01000000
+#define IC1_POSEDGE_MSK B01000000
 
 void init_GPIO() {
-  pinMode(TEST_PIN, OUTPUT);
+  pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
 }
 
 void power_reduction() {
-
   // PRR = B10001101;       //TWI:  Off   TIM2:   On   TIM0:  On    TIM1:   On
   //                         //SPI:  Off   USART:  On   ADC:   Off
   // Serial.println(PRR);
@@ -55,22 +55,32 @@ void init_TIMER2() {
   sei();                  // enable all interrupts
 }
 
+volatile uint16_t uiPrevICR1;
+volatile uint16_t uiEchoCNT;
 ISR(TIMER1_CAPT_vect) {
+
+  if ( TCCR1B & IC1_POSEDGE_MSK ) {
+    // Store TIM1 counter value
+    uiPrevICR1 = ICR1;
+  } else {
+    // Calculate ECHO pulse period
+    uiEchoCNT =  (ICR1 - uiPrevICR1 - 1);
+  }
+  Serial.println(uiEchoCNT);
+
   // Toggle IC Edge
   TCCR1B ^= IC1_EDGESEL_MSK;
-  // Print Timer 1 value stored in ICR1
-  Serial.println(ICR1);
 }
 
-volatile uint8_t cntT2 = 0;
-volatile bool pinState;
+volatile uint8_t ucCntT2 = 0;
 ISR(TIMER2_OVF_vect) {
-  cntT2++;
-  // If 1 sec has passed,
-  if ( !(cntT2%64) ) {
-    // Toggle TEST_PIN to verify IC1 is working
-    pinState = !pinState;
-    digitalWrite(TEST_PIN, pinState);
+  ucCntT2++;
+  // Sample Rate: Every ~ 0.13 sec
+  if ( !(ucCntT2%8) ) {
+    // Trigger Ultrasonic sensor with a 10us pulse.
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN, LOW);
   }
 }
 
@@ -81,9 +91,7 @@ void setup() {
   Serial.println(MCUSR);
   // Initialize peripherals
   init_GPIO();
-  Serial.println("Before init.");
   init_TIMER1();
-  Serial.println("Init complete.");
   init_TIMER2();
 }
 
